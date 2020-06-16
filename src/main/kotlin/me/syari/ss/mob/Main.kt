@@ -1,5 +1,6 @@
 package me.syari.ss.mob
 
+import me.syari.ss.core.auto.OnEnable
 import org.bukkit.plugin.java.JavaPlugin
 
 class Main: JavaPlugin() {
@@ -9,5 +10,6 @@ class Main: JavaPlugin() {
 
     override fun onEnable() {
         mobPlugin = this
+        OnEnable.register(ConfigLoader)
     }
 }
