@@ -3,7 +3,6 @@ import net.minecrell.pluginyml.bukkit.BukkitPluginDescription.PluginLoadOrder.PO
 plugins {
     kotlin("jvm") version "1.3.72"
     id("net.minecrell.plugin-yml.bukkit") version "0.3.0"
-    `maven-publish`
 }
 
 group = "me.syari.ss.mob"
