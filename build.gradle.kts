@@ -6,7 +6,7 @@ plugins {
     `maven-publish`
 }
 
-group = "me.syari.ss.item"
+group = "me.syari.ss.mob"
 version = "1.0"
 
 val ssMavenRepoURL: String by extra
