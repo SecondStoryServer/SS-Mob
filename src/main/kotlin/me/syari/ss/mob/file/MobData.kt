@@ -44,8 +44,10 @@ class MobData private constructor(
                         } else {
                             println("Depth Error $lastDepth->$depth '$statement'")
                         }
-                    } else {
+                    } else if (currentGroup.parentGroup != null) {
                         currentGroup.addStatement(statement)
+                    } else {
+                        throw SkillFormatException("Function must be placed in events '$statement'")
                     }
                 }
             }
