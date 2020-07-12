@@ -108,12 +108,8 @@ object MobDataLoader {
                             val eventText = statement.replace("\\s+".toRegex(), "").removeSuffix(":")
                             if (MobSkillEvent.matchFirst(eventText) == null) errorList.add("[Skill] イベントではありません '$eventText'")
                         }
-                        if (lastDepth <= depth) {
-                            currentGroup = currentGroup.addSubGroup(currentGroup, statement)
-                            lastDepth++
-                        } else {
-                            println("Depth Error $lastDepth->$depth '$statement'")
-                        }
+                        currentGroup = currentGroup.addSubGroup(currentGroup, statement)
+                        lastDepth++
                     } else if (currentGroup.parentGroup != null) {
                         currentGroup.addStatement(statement)
                     } else {
