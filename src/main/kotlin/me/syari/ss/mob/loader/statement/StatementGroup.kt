@@ -16,9 +16,9 @@ sealed class StatementGroup {
 
     fun get() = content.toList()
 
-    data class Statement(val statement: String) : StatementGroup()
+    data class Statement(val statement: String): StatementGroup()
     data class SubGroup(
         val parentGroup: SubGroup?,
         val statement: String
-    ) : StatementGroup()
+    ): StatementGroup()
 }
