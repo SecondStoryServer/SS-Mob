@@ -19,11 +19,18 @@ class MobData private constructor(
         val config = configContent?.let {
             config(mobPlugin, console, fileName, StringReader(configContent))
         }
+        val skillLines = skillContent?.let { content ->
+            val lines = content.replace(
+                "#.*".toRegex(),
+                ""
+            ).lines().filter(String::isNotBlank).map { it to it.indentWidth }
+            lines
+        }
         mobPlugin.logger.info(
             """
             $id
             ${config?.section("")}
-            $skillContent
+            $skillLines
             """.trimIndent()
         )
     }
@@ -46,5 +53,7 @@ class MobData private constructor(
                 }
             }
         }
+
+        private val String.indentWidth get() = indexOfFirst { !it.isWhitespace() }
     }
 }
