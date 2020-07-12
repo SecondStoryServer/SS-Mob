@@ -20,7 +20,7 @@ class MobData private constructor(
             config(mobPlugin, console, fileName, StringReader(configContent))
         }
         val skillLines = skillContent?.let { content ->
-            val lines = content.withoutComment.lines().filter(String::isNotBlank).map { it to it.indentWidth }
+            val lines = content.withoutComment.withoutBlankLines.withIndentWidth
             lines
         }
         mobPlugin.logger.info(
@@ -51,8 +51,12 @@ class MobData private constructor(
             }
         }
 
-        private val String.withoutComment get() = replace("#.*".toRegex(), "")
+        private inline val String.withoutComment get() = replace("#.*".toRegex(), "")
 
-        private val String.indentWidth get() = indexOfFirst { !it.isWhitespace() }
+        private inline val String.withoutBlankLines get() = lines().filter(String::isNotBlank)
+
+        private inline val List<String>.withIndentWidth get() = map { it to it.indentWidth }
+
+        private inline val String.indentWidth get() = indexOfFirst { !it.isWhitespace() }
     }
 }
