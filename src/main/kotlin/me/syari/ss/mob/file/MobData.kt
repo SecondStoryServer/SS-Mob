@@ -1,7 +1,10 @@
 package me.syari.ss.mob.file
 
+import me.syari.ss.core.Main.Companion.console
+import me.syari.ss.core.config.CreateConfig.config
 import me.syari.ss.mob.Main.Companion.mobPlugin
 import java.io.File
+import java.io.StringReader
 
 class MobData private constructor(
     fileName: String,
@@ -12,11 +15,16 @@ class MobData private constructor(
     val id = fileName.substringBefore(FILE_EXTENSION)
 
     init {
+        val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
+        val config = configContent?.let {
+            config(mobPlugin, console, fileName, StringReader(configContent))
+        }
         mobPlugin.logger.info(
             """
             $id
-            ${file.readLines()}
-        """.trimIndent()
+            ${config?.section("")}
+            $skillContent
+            """.trimIndent()
         )
     }
 
