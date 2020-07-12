@@ -52,6 +52,8 @@ object MobDataLoader {
 
     private inline val String.indentWidth get() = indexOfFirst { !it.isWhitespace() }
 
+    private inline val String.withoutSurroundBlank get() = replace("^\\s+".toRegex(), "").replace("\\s+$".toRegex(), "")
+
     private sealed class StatementGroup {
         private val content = mutableListOf<StatementGroup>()
 
@@ -93,7 +95,8 @@ object MobDataLoader {
             if (minIndentWidth != null) {
                 var lastDepth = 1
                 var currentGroup = statementGroup
-                lines.forEach { (statement, indentWidth) ->
+                lines.forEach { (rawStatement, indentWidth) ->
+                    val statement = rawStatement.withoutSurroundBlank
                     val depth = indentWidth / minIndentWidth
                     if (depth < lastDepth) {
                         for (i in depth until lastDepth) {
@@ -104,11 +107,11 @@ object MobDataLoader {
                         lastDepth = depth
                     }
                     if (":\\s*\$".toRegex().find(statement) != null) {
-                        if (depth == 1) {
-                            val eventText = statement.replace("\\s+".toRegex(), "").removeSuffix(":")
-                            if (MobSkillEvent.matchFirst(eventText) == null) errorList.add("[Skill] イベントではありません '$eventText'")
+                        val withoutColonStatement = statement.removeSuffix(":")
+                        if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
+                            errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
                         }
-                        currentGroup = currentGroup.addSubGroup(currentGroup, statement)
+                        currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
                         lastDepth++
                     } else if (currentGroup.parentGroup != null) {
                         currentGroup.addStatement(statement)
@@ -125,7 +128,7 @@ object MobDataLoader {
                 ) {
                     statementGroup.get().forEach {
                         for (i in 0 until depth) {
-                            append("  ")
+                            append("\t")
                         }
                         when (it) {
                             is StatementGroup.Statement -> {
