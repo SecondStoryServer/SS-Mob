@@ -106,11 +106,11 @@ object MobDataLoader {
                     depth: Int
                 ) {
                     statementGroup.get().forEach {
+                        for (i in 0 until depth) {
+                            append("  ")
+                        }
                         when (it) {
                             is StatementGroup.Statement -> {
-                                for (i in 0 until depth) {
-                                    append("  ")
-                                }
                                 appendln(it.statement)
                             }
                             is StatementGroup.SubGroup -> {
