@@ -1,21 +1,69 @@
-package me.syari.ss.mob.file
+package me.syari.ss.mob.loader
 
 import me.syari.ss.core.Main.Companion.console
 import me.syari.ss.core.config.CreateConfig.config
 import me.syari.ss.mob.Main.Companion.mobPlugin
-import me.syari.ss.mob.file.exception.SkillFormatException
+import me.syari.ss.mob.data.MobData
+import me.syari.ss.mob.loader.exception.SkillFormatException
 import java.io.File
 import java.io.StringReader
 
-class MobData private constructor(
-    fileName: String,
-    directory: File
-) {
-    private val file = File(directory, fileName)
+object MobDataLoader {
+    private const val FILE_EXTENSION = ".yml"
 
-    val id = fileName.substringBefore(FILE_EXTENSION)
+    fun loadMobData(directoryName: String): MutableSet<MobData> {
+        var directory = mobPlugin.dataFolder
+        if (!directory.exists()) directory.mkdir()
+        directoryName.split("/".toRegex()).forEach { subDirectory ->
+            directory = File(directory, subDirectory)
+            if (!directory.exists()) directory.mkdir()
+        }
+        return mutableSetOf<MobData>().apply {
+            directory.list()?.forEach { fileName ->
+                if (fileName.endsWith(FILE_EXTENSION)) {
+                    add(loadMobData(fileName, directory))
+                }
+            }
+        }
+    }
 
-    init {
+    private inline val String.withoutComment get() = replace("#.*".toRegex(), "")
+
+    private inline val String.withoutBlankLines get() = lines().filter(String::isNotBlank)
+
+    private inline val List<String>.withIndentWidth get() = map { it to it.indentWidth }
+
+    private inline val String.indentWidth get() = indexOfFirst { !it.isWhitespace() }
+
+    private sealed class StatementGroup {
+        private val content = mutableListOf<StatementGroup>()
+
+        fun addStatement(statement: String) {
+            content.add(Statement(statement))
+        }
+
+        fun addSubGroup(
+            parentGroup: SubGroup?,
+            statement: String
+        ): SubGroup {
+            return SubGroup(parentGroup, statement).apply { content.add(this) }
+        }
+
+        fun get() = content.toList()
+
+        data class Statement(val statement: String): StatementGroup()
+        data class SubGroup(
+            val parentGroup: SubGroup?,
+            val statement: String
+        ): StatementGroup()
+    }
+
+    private fun loadMobData(
+        fileName: String,
+        directory: File
+    ): MobData {
+        val file = File(directory, fileName)
+        val id = fileName.substringBefore(FILE_EXTENSION)
         val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
         val config = configContent?.let {
             config(mobPlugin, console, fileName, StringReader(configContent))
@@ -83,56 +131,6 @@ class MobData private constructor(
             |$skillLines
             """.trimMargin()
         )
-    }
-
-    companion object {
-        private const val FILE_EXTENSION = ".yml"
-
-        fun loadMobData(directoryName: String): MutableSet<MobData> {
-            var directory = mobPlugin.dataFolder
-            if (!directory.exists()) directory.mkdir()
-            directoryName.split("/".toRegex()).forEach { subDirectory ->
-                directory = File(directory, subDirectory)
-                if (!directory.exists()) directory.mkdir()
-            }
-            return mutableSetOf<MobData>().apply {
-                directory.list()?.forEach { fileName ->
-                    if (fileName.endsWith(FILE_EXTENSION)) {
-                        add(MobData(fileName, directory))
-                    }
-                }
-            }
-        }
-
-        private inline val String.withoutComment get() = replace("#.*".toRegex(), "")
-
-        private inline val String.withoutBlankLines get() = lines().filter(String::isNotBlank)
-
-        private inline val List<String>.withIndentWidth get() = map { it to it.indentWidth }
-
-        private inline val String.indentWidth get() = indexOfFirst { !it.isWhitespace() }
-
-        private sealed class StatementGroup {
-            private val content = mutableListOf<StatementGroup>()
-
-            fun addStatement(statement: String) {
-                content.add(Statement(statement))
-            }
-
-            fun addSubGroup(
-                parentGroup: SubGroup?,
-                statement: String
-            ): SubGroup {
-                return SubGroup(parentGroup, statement).apply { content.add(this) }
-            }
-
-            fun get() = content.toList()
-
-            data class Statement(val statement: String): StatementGroup()
-            data class SubGroup(
-                val parentGroup: SubGroup?,
-                val statement: String
-            ): StatementGroup()
-        }
+        return MobData(id)
     }
 }
