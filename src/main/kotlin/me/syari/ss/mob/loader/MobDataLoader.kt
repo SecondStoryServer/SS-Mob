@@ -111,9 +111,10 @@ object MobDataLoader {
                             val withoutColonStatement = statement.removeSuffix(":")
                             if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
                                 errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
+                            } else {
+                                currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
+                                lastDepth++
                             }
-                            currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
-                            lastDepth++
                         }
                         currentGroup.parentGroup != null -> {
                             currentGroup.addStatement(statement)
