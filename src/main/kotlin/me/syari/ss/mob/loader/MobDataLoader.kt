@@ -89,8 +89,7 @@ object MobDataLoader {
                     if (":\\s*\$".toRegex().find(statement) != null) {
                         if (depth == 1) {
                             val eventText = statement.replace("\\s+".toRegex(), "").removeSuffix(":")
-                            val event = MobSkillEvent.matchFirst(eventText)
-                                    ?: throw SkillFormatException("イベントではありません '$eventText'")
+                            if (MobSkillEvent.matchFirst(eventText) == null) throw SkillFormatException("イベントではありません '$eventText'")
                         }
                         if (lastDepth <= depth) {
                             currentGroup = currentGroup.addSubGroup(currentGroup, statement)
