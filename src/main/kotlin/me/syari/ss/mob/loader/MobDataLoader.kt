@@ -4,6 +4,7 @@ import me.syari.ss.core.Main.Companion.console
 import me.syari.ss.core.config.CreateConfig.config
 import me.syari.ss.mob.Main.Companion.mobPlugin
 import me.syari.ss.mob.data.MobData
+import me.syari.ss.mob.data.event.MobSkillEvent
 import me.syari.ss.mob.loader.exception.SkillFormatException
 import java.io.File
 import java.io.StringReader
@@ -86,6 +87,11 @@ object MobDataLoader {
                         lastDepth = depth
                     }
                     if (":\\s*\$".toRegex().find(statement) != null) {
+                        if (depth == 1) {
+                            val eventText = statement.replace("\\s+".toRegex(), "").removeSuffix(":")
+                            val event = MobSkillEvent.matchFirst(eventText)
+                                    ?: throw SkillFormatException("イベントではありません '$eventText'")
+                        }
                         if (lastDepth <= depth) {
                             currentGroup = currentGroup.addSubGroup(currentGroup, statement)
                             lastDepth++
