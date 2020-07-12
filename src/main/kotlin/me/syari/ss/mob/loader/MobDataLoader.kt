@@ -94,6 +94,7 @@ object MobDataLoader {
             val minIndentWidth = lines.firstOrNull()?.second
             if (minIndentWidth != null) {
                 var lastDepth = 1
+                var isIgnoreEvent = false
                 var currentGroup = statementGroup
                 lines.forEach { (rawStatement, indentWidth) ->
                     val statement = rawStatement.withoutSurroundBlank
@@ -109,9 +110,13 @@ object MobDataLoader {
                     when {
                         ":\\s*\$".toRegex().find(statement) != null -> {
                             val withoutColonStatement = statement.removeSuffix(":")
+                            if (depth == 1 && isIgnoreEvent) {
+                                isIgnoreEvent = false
+                            }
                             if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
                                 errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
-                            } else {
+                                isIgnoreEvent = true
+                            } else if (!isIgnoreEvent) {
                                 currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
                                 lastDepth++
                             }
@@ -119,7 +124,7 @@ object MobDataLoader {
                         currentGroup.parentGroup != null -> {
                             currentGroup.addStatement(statement)
                         }
-                        else -> {
+                        !isIgnoreEvent -> {
                             errorList.add("[Skill] 関数はイベント内に入れてください '$statement'")
                         }
                     }
