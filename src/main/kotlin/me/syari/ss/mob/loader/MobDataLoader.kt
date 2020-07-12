@@ -106,17 +106,21 @@ object MobDataLoader {
                         }
                         lastDepth = depth
                     }
-                    if (":\\s*\$".toRegex().find(statement) != null) {
-                        val withoutColonStatement = statement.removeSuffix(":")
-                        if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
-                            errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
+                    when {
+                        ":\\s*\$".toRegex().find(statement) != null -> {
+                            val withoutColonStatement = statement.removeSuffix(":")
+                            if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
+                                errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
+                            }
+                            currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
+                            lastDepth++
                         }
-                        currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
-                        lastDepth++
-                    } else if (currentGroup.parentGroup != null) {
-                        currentGroup.addStatement(statement)
-                    } else {
-                        errorList.add("[Skill] 関数はイベント内に入れてください '$statement'")
+                        currentGroup.parentGroup != null -> {
+                            currentGroup.addStatement(statement)
+                        }
+                        else -> {
+                            errorList.add("[Skill] 関数はイベント内に入れてください '$statement'")
+                        }
                     }
                 }
             }
