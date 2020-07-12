@@ -33,7 +33,7 @@ class MobData private constructor(
                         for (i in depth until lastDepth) {
                             currentGroup.parentGroup?.let {
                                 currentGroup = it
-                            } ?: throw SkillFormatException("Unexpected Indent '$statement'")
+                            } ?: throw SkillFormatException("インデントが不正です '$statement'")
                         }
                         lastDepth = depth
                     }
@@ -47,7 +47,7 @@ class MobData private constructor(
                     } else if (currentGroup.parentGroup != null) {
                         currentGroup.addStatement(statement)
                     } else {
-                        throw SkillFormatException("Function must be placed in events '$statement'")
+                        throw SkillFormatException("関数はイベント内に入れてください '$statement'")
                     }
                 }
             }
