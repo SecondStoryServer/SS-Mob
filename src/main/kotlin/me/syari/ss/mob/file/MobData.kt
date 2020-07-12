@@ -76,10 +76,10 @@ class MobData private constructor(
         }
         mobPlugin.logger.info(
             """
-            $id
-            ${config?.section("")}
-            $skillLines
-            """.trimIndent()
+            |$id
+            |${config?.section("")}
+            |$skillLines
+            """.trimMargin()
         )
     }
 
