@@ -7,7 +7,9 @@ import me.syari.ss.mob.Main.Companion.mobPlugin
 import me.syari.ss.mob.data.MobData
 import me.syari.ss.mob.data.event.MobSkillEvent
 import me.syari.ss.mob.loader.error.LoadedMobData
+import me.syari.ss.mob.loader.error.ToRunnableResult
 import me.syari.ss.mob.loader.statement.StatementGroup
+import me.syari.ss.mob.loader.statement.function.asFunction
 import org.bukkit.command.CommandSender
 import java.io.File
 import java.io.StringReader
@@ -124,16 +126,22 @@ object MobDataLoader {
                         statementGroup: StatementGroup,
                         depth: Int
                     ) {
-                        statementGroup.get().forEach {
+                        statementGroup.get().forEach { it ->
                             for (i in 0 until depth) {
                                 append("\t")
                             }
                             when (it) {
                                 is StatementGroup.Statement -> {
-                                    appendln(it.statement)
+                                    val runnable = it.statement.asFunction?.toRunnable(it.statement)
+                                    val result = when (runnable) {
+                                        is ToRunnableResult.Success -> "success"
+                                        is ToRunnableResult.Error -> runnable.error
+                                        else -> "null"
+                                    }
+                                    appendln(it.statement + "(" + result + ")")
                                 }
                                 is StatementGroup.SubGroup -> {
-                                    appendln(it.statement)
+                                    appendln(it.statement + "---")
                                     groupToString(it, depth + 1)
                                 }
                             }
