@@ -1,6 +1,6 @@
 package me.syari.ss.mob.loader.statement
 
-import me.syari.ss.mob.loader.error.ToRunnableResult
+import me.syari.ss.mob.data.LivingMobData
 import me.syari.ss.mob.loader.statement.TargetType.Companion.toTargetType
 
 interface FunctionStatement {
@@ -17,4 +17,9 @@ interface FunctionStatement {
         args: List<String>,
         targetType: TargetType?
     ): ToRunnableResult
+}
+
+sealed class ToRunnableResult {
+    class Success(val run: (caller: LivingMobData) -> Unit): ToRunnableResult()
+    class Error(val error: String): ToRunnableResult()
 }

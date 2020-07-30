@@ -6,9 +6,8 @@ import me.syari.ss.core.message.Message.send
 import me.syari.ss.mob.Main.Companion.mobPlugin
 import me.syari.ss.mob.data.MobData
 import me.syari.ss.mob.data.event.MobSkillEvent
-import me.syari.ss.mob.loader.error.LoadedMobData
-import me.syari.ss.mob.loader.error.ToRunnableResult
 import me.syari.ss.mob.loader.statement.StatementGroup
+import me.syari.ss.mob.loader.statement.ToRunnableResult
 import me.syari.ss.mob.loader.statement.function.asFunction
 import org.bukkit.command.CommandSender
 import java.io.File
@@ -32,10 +31,10 @@ object MobDataLoader {
                 if (fileName.endsWith(FILE_EXTENSION)) {
                     loadMobData(fileName, directory).let {
                         when (it) {
-                            is LoadedMobData.Success -> {
+                            is LoadedMob.Result.Success -> {
                                 add(it.data)
                             }
-                            is LoadedMobData.Error -> {
+                            is LoadedMob.Result.Error -> {
                                 it.errorList.forEach { error ->
                                     output.send("[${it.fileName}] $error")
                                 }
@@ -57,21 +56,29 @@ object MobDataLoader {
 
     private inline val String.withoutSurroundBlank get() = replace("^\\s+".toRegex(), "").replace("\\s+$".toRegex(), "")
 
-    private class LoadedMobDataCache {
-        lateinit var loadedMobData: LoadedMobData
+    class LoadedMob {
+        sealed class Result {
+            class Success(val data: MobData): Result()
+            class Error(
+                val fileName: String,
+                val errorList: List<String>
+            ): Result()
+        }
+
+        lateinit var loadedMobData: Result
         var lastModified = 0L
     }
 
-    private val loadedMobDataCacheList = mutableMapOf<String, LoadedMobDataCache>()
+    private val loadedMobDataCacheList = mutableMapOf<String, LoadedMob>()
 
     private fun loadMobData(
         fileName: String,
         directory: File
-    ): LoadedMobData {
+    ): LoadedMob.Result {
         val file = File(directory, fileName)
         val fileLastModified = file.lastModified()
         val id = fileName.substringBefore(FILE_EXTENSION)
-        val cache = loadedMobDataCacheList.getOrPut(id) { LoadedMobDataCache() }
+        val cache = loadedMobDataCacheList.getOrPut(id) { LoadedMob() }
         return if (cache.lastModified != fileLastModified) {
             val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
             val config = configContent?.let {
@@ -159,9 +166,9 @@ object MobDataLoader {
                 """.trimMargin()
             )
             if (errorList.isEmpty()) {
-                LoadedMobData.Success(MobData(id))
+                LoadedMob.Result.Success(MobData(id))
             } else {
-                LoadedMobData.Error(fileName, errorList)
+                LoadedMob.Result.Error(fileName, errorList)
             }.apply {
                 cache.loadedMobData = this
                 cache.lastModified = fileLastModified

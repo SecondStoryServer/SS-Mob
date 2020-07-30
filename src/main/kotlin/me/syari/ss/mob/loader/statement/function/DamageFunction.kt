@@ -1,8 +1,8 @@
 package me.syari.ss.mob.loader.statement.function
 
-import me.syari.ss.mob.loader.error.ToRunnableResult
 import me.syari.ss.mob.loader.statement.FunctionStatement
 import me.syari.ss.mob.loader.statement.TargetType
+import me.syari.ss.mob.loader.statement.ToRunnableResult
 
 object DamageFunction: FunctionStatement {
     override val label = "damage"
