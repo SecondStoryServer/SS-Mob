@@ -55,95 +55,111 @@ object MobDataLoader {
 
     private inline val String.withoutSurroundBlank get() = replace("^\\s+".toRegex(), "").replace("\\s+$".toRegex(), "")
 
+    private class LoadedMobDataCache {
+        lateinit var loadedMobData: LoadedMobData
+        var lastModified = 0L
+    }
+
+    private val loadedMobDataCacheList = mutableMapOf<String, LoadedMobDataCache>()
+
     private fun loadMobData(
         fileName: String,
         directory: File
     ): LoadedMobData {
         val file = File(directory, fileName)
+        val fileLastModified = file.lastModified()
         val id = fileName.substringBefore(FILE_EXTENSION)
-        val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
-        val config = configContent?.let {
-            config(mobPlugin, console, fileName, StringReader(configContent))
-        }
-        val errorList = mutableListOf<String>()
-        val skillLines = skillContent?.let { content ->
-            val lines = content.withoutComment.withoutBlankLines.withIndentWidth
-            val statementGroup = StatementGroup.SubGroup(null, "")
-            val minIndentWidth = lines.firstOrNull()?.second
-            if (minIndentWidth != null) {
-                var lastDepth = 1
-                var isIgnoreEvent = false
-                var currentGroup = statementGroup
-                lines.forEach { (rawStatement, indentWidth) ->
-                    val statement = rawStatement.withoutSurroundBlank
-                    val depth = indentWidth / minIndentWidth
-                    if (depth < lastDepth) {
-                        for (i in depth until lastDepth) {
-                            currentGroup.parentGroup?.let {
-                                currentGroup = it
-                            } ?: errorList.add("[Skill] インデントが不正です '$statement'")
-                        }
-                        lastDepth = depth
-                    }
-                    when {
-                        ":\\s*\$".toRegex().find(statement) != null -> {
-                            val withoutColonStatement = statement.removeSuffix(":")
-                            if (depth == 1 && isIgnoreEvent) {
-                                isIgnoreEvent = false
-                            }
-                            if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
-                                errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
-                                isIgnoreEvent = true
-                            } else if (!isIgnoreEvent) {
-                                currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
-                                lastDepth++
-                            }
-                        }
-                        currentGroup.parentGroup != null -> {
-                            currentGroup.addStatement(statement)
-                        }
-                        !isIgnoreEvent -> {
-                            errorList.add("[Skill] 関数はイベント内に入れてください '$statement'")
-                        }
-                    }
-                }
+        val cache = loadedMobDataCacheList.getOrPut(id) { LoadedMobDataCache() }
+        return if (cache.lastModified != fileLastModified) {
+            val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
+            val config = configContent?.let {
+                config(mobPlugin, console, fileName, StringReader(configContent))
             }
-
-            buildString {
-                fun groupToString(
-                    statementGroup: StatementGroup,
-                    depth: Int
-                ) {
-                    statementGroup.get().forEach {
-                        for (i in 0 until depth) {
-                            append("\t")
-                        }
-                        when (it) {
-                            is StatementGroup.Statement -> {
-                                appendln(it.statement)
+            val errorList = mutableListOf<String>()
+            val skillLines = skillContent?.let { content ->
+                val lines = content.withoutComment.withoutBlankLines.withIndentWidth
+                val statementGroup = StatementGroup.SubGroup(null, "")
+                val minIndentWidth = lines.firstOrNull()?.second
+                if (minIndentWidth != null) {
+                    var lastDepth = 1
+                    var isIgnoreEvent = false
+                    var currentGroup = statementGroup
+                    lines.forEach { (rawStatement, indentWidth) ->
+                        val statement = rawStatement.withoutSurroundBlank
+                        val depth = indentWidth / minIndentWidth
+                        if (depth < lastDepth) {
+                            for (i in depth until lastDepth) {
+                                currentGroup.parentGroup?.let {
+                                    currentGroup = it
+                                } ?: errorList.add("[Skill] インデントが不正です '$statement'")
                             }
-                            is StatementGroup.SubGroup -> {
-                                appendln(it.statement)
-                                groupToString(it, depth + 1)
+                            lastDepth = depth
+                        }
+                        when {
+                            ":\\s*\$".toRegex().find(statement) != null -> {
+                                val withoutColonStatement = statement.removeSuffix(":")
+                                if (depth == 1 && isIgnoreEvent) {
+                                    isIgnoreEvent = false
+                                }
+                                if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
+                                    errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
+                                    isIgnoreEvent = true
+                                } else if (!isIgnoreEvent) {
+                                    currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
+                                    lastDepth++
+                                }
+                            }
+                            currentGroup.parentGroup != null -> {
+                                currentGroup.addStatement(statement)
+                            }
+                            !isIgnoreEvent -> {
+                                errorList.add("[Skill] 関数はイベント内に入れてください '$statement'")
                             }
                         }
                     }
                 }
 
-                groupToString(statementGroup, 0)
+                buildString {
+                    fun groupToString(
+                        statementGroup: StatementGroup,
+                        depth: Int
+                    ) {
+                        statementGroup.get().forEach {
+                            for (i in 0 until depth) {
+                                append("\t")
+                            }
+                            when (it) {
+                                is StatementGroup.Statement -> {
+                                    appendln(it.statement)
+                                }
+                                is StatementGroup.SubGroup -> {
+                                    appendln(it.statement)
+                                    groupToString(it, depth + 1)
+                                }
+                            }
+                        }
+                    }
+
+                    groupToString(statementGroup, 0)
+                }
             }
-        }
-        mobPlugin.logger.info(
-            """
-            |$id
-            |${config?.section("")}
-            |$skillLines
-            """.trimMargin()
-        )
-        return if (errorList.isEmpty()) {
-            LoadedMobData.Success(MobData(id))
+            mobPlugin.logger.info(
+                """
+                |$id
+                |${config?.section("")}
+                |$skillLines
+                """.trimMargin()
+            )
+            if (errorList.isEmpty()) {
+                LoadedMobData.Success(MobData(id))
+            } else {
+                LoadedMobData.Error(fileName, errorList)
+            }.apply {
+                cache.loadedMobData = this
+                cache.lastModified = fileLastModified
+            }
         } else {
-            LoadedMobData.Error(fileName, errorList)
+            cache.loadedMobData
         }
     }
 }
