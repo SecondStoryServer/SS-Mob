@@ -1,5 +1,7 @@
 package me.syari.ss.mob.loader.statement
 
+import me.syari.ss.mob.data.event.MobSkillEvent
+
 sealed class StatementGroup {
     private val content = mutableListOf<StatementGroup>()
 
@@ -9,9 +11,10 @@ sealed class StatementGroup {
 
     fun addSubGroup(
         parentGroup: SubGroup?,
-        statement: String
+        statement: String,
+        eventType: MobSkillEvent.Type?
     ): SubGroup {
-        return SubGroup(parentGroup, statement).apply { content.add(this) }
+        return SubGroup(parentGroup, statement, MobSkillEvent.from(eventType, statement)).apply { content.add(this) }
     }
 
     fun get() = content.toList()
@@ -19,6 +22,7 @@ sealed class StatementGroup {
     data class Statement(val statement: String): StatementGroup()
     data class SubGroup(
         val parentGroup: SubGroup?,
-        val statement: String
+        val statement: String,
+        val eventType: MobSkillEvent?
     ): StatementGroup()
 }

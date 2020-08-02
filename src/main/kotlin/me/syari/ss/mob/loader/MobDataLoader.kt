@@ -6,6 +6,7 @@ import me.syari.ss.core.message.Message.send
 import me.syari.ss.mob.Main.Companion.mobPlugin
 import me.syari.ss.mob.data.MobData
 import me.syari.ss.mob.data.event.MobSkillEvent
+import me.syari.ss.mob.loader.statement.RunnableGroup
 import me.syari.ss.mob.loader.statement.StatementGroup
 import me.syari.ss.mob.loader.statement.ToRunnableResult
 import me.syari.ss.mob.loader.statement.function.asFunction
@@ -80,6 +81,7 @@ object MobDataLoader {
         val id = fileName.substringBefore(FILE_EXTENSION)
         val cache = loadedMobDataCacheList.getOrPut(id) { LoadedMob() }
         return if (cache.lastModified != fileLastModified) {
+            val onEvents = mutableMapOf<MobSkillEvent, RunnableGroup>()
             val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
             val config = configContent?.let {
                 config(mobPlugin, console, fileName, StringReader(configContent))
@@ -87,7 +89,7 @@ object MobDataLoader {
             val errorList = mutableListOf<String>()
             val skillLines = skillContent?.let { content ->
                 val lines = content.withoutComment.withoutBlankLines.withIndentWidth
-                val statementGroup = StatementGroup.SubGroup(null, "")
+                val statementGroup = StatementGroup.SubGroup(null, "", null)
                 val minIndentWidth = lines.firstOrNull()?.second
                 if (minIndentWidth != null) {
                     var lastDepth = 1
@@ -110,11 +112,16 @@ object MobDataLoader {
                                 if (depth == 1 && isIgnoreEvent) {
                                     isIgnoreEvent = false
                                 }
-                                if (depth == 1 && MobSkillEvent.matchFirst(withoutColonStatement) == null) {
+                                val mobSkillEvent = MobSkillEvent.Type.matchFirst(withoutColonStatement)
+                                if (depth == 1 && mobSkillEvent == null) {
                                     errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
                                     isIgnoreEvent = true
                                 } else if (!isIgnoreEvent) {
-                                    currentGroup = currentGroup.addSubGroup(currentGroup, withoutColonStatement)
+                                    currentGroup = currentGroup.addSubGroup(
+                                        currentGroup,
+                                        withoutColonStatement,
+                                        mobSkillEvent
+                                    )
                                     lastDepth++
                                 }
                             }
@@ -133,7 +140,7 @@ object MobDataLoader {
                         statementGroup: StatementGroup,
                         depth: Int
                     ) {
-                        statementGroup.get().forEach { it ->
+                        statementGroup.get().forEach {
                             for (i in 0 until depth) {
                                 append("\t")
                             }
@@ -148,6 +155,9 @@ object MobDataLoader {
                                     appendln(it.statement + "(" + result + ")")
                                 }
                                 is StatementGroup.SubGroup -> {
+                                    if (it.eventType != null) {
+                                        append("[event]")
+                                    }
                                     appendln(it.statement + "---")
                                     groupToString(it, depth + 1)
                                 }
@@ -166,7 +176,7 @@ object MobDataLoader {
                 """.trimMargin()
             )
             if (errorList.isEmpty()) {
-                LoadedMob.Result.Success(MobData(id))
+                LoadedMob.Result.Success(MobData(id, onEvents))
             } else {
                 LoadedMob.Result.Error(fileName, errorList)
             }.apply {
