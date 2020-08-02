@@ -81,7 +81,7 @@ object MobDataLoader {
         val id = fileName.substringBefore(FILE_EXTENSION)
         val cache = loadedMobDataCacheList.getOrPut(id) { LoadedMob() }
         return if (cache.lastModified != fileLastModified) {
-            val onEvents = mutableMapOf<MobSkillEvent, RunnableGroup>()
+            val mobSkillEvents = mutableMapOf<MobSkillEvent, RunnableGroup>()
             val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
             val config = configContent?.let {
                 config(mobPlugin, console, fileName, StringReader(configContent))
@@ -137,6 +137,7 @@ object MobDataLoader {
 
                 buildString {
                     fun groupToString(
+                        parentGroup: RunnableGroup.SubGroup,
                         statementGroup: StatementGroup,
                         depth: Int
                     ) {
@@ -148,24 +149,38 @@ object MobDataLoader {
                                 is StatementGroup.Statement -> {
                                     val runnable = it.statement.asFunction?.toRunnable(it.statement)
                                     val result = when (runnable) {
-                                        is ToRunnableResult.Success -> "success"
+                                        is ToRunnableResult.Success -> {
+                                            parentGroup.addStatement(runnable.run)
+                                            "success"
+                                        }
                                         is ToRunnableResult.Error -> runnable.error
                                         else -> "null"
                                     }
                                     appendln(it.statement + "(" + result + ")")
                                 }
                                 is StatementGroup.SubGroup -> {
-                                    if (it.eventType != null) {
-                                        append("[event]")
-                                    }
-                                    appendln(it.statement + "---")
-                                    groupToString(it, depth + 1)
+                                    appendln(it.statement)
+                                    groupToString(parentGroup.addSubGroup(parentGroup, it.eventType), it, depth + 1)
                                 }
                             }
                         }
                     }
 
-                    groupToString(statementGroup, 0)
+                    RunnableGroup.SubGroup(null, null).apply {
+                        groupToString(this, statementGroup, 0)
+                    }.get().forEach {
+                        if (it is RunnableGroup.SubGroup && it.eventType != null) {
+                            mobSkillEvents[it.eventType] = it
+                        }
+                    }
+
+                    appendln("Events: ${mobSkillEvents.size}")
+                    mobSkillEvents.values.first().let {
+                        appendln("Event[${(it as RunnableGroup.SubGroup).eventType.toString()}]: ${it.get().size}")
+                    }
+                    mobSkillEvents.values.last().let {
+                        appendln("Event[${(it as RunnableGroup.SubGroup).eventType.toString()}]: ${it.get().size}")
+                    }
                 }
             }
             mobPlugin.logger.info(
@@ -176,7 +191,7 @@ object MobDataLoader {
                 """.trimMargin()
             )
             if (errorList.isEmpty()) {
-                LoadedMob.Result.Success(MobData(id, onEvents))
+                LoadedMob.Result.Success(MobData(id, mobSkillEvents))
             } else {
                 LoadedMob.Result.Error(fileName, errorList)
             }.apply {
