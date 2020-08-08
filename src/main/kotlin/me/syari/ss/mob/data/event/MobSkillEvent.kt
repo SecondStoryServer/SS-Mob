@@ -28,15 +28,14 @@ sealed class MobSkillEvent {
 
     companion object: Event {
         fun from(
-            eventType: Type?,
+            eventType: Type,
             statement: String
-        ): MobSkillEvent? {
+        ): MobSkillEvent {
             return when (eventType) {
                 Type.OnAttack -> Attack
                 Type.OnDamaged -> Damaged
                 Type.OnClicked -> Clicked
                 Type.OnTimer -> Timer(statement.substringAfter('-').toInt())
-                null -> null
             }
         }
 

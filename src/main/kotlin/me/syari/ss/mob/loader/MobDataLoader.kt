@@ -126,10 +126,49 @@ object MobDataLoader {
                                         lastDepth++
                                     }
                                 } else if (!isIgnoreEvent) {
-                                    currentGroup = currentGroup.addSubGroup(
-                                        currentGroup,
-                                        withoutColonStatement
-                                    )
+                                    if (currentGroup !is StatementGroup.When) {
+                                        val splitStatement = withoutColonStatement.split("\\s+".toRegex())
+                                        when (splitStatement.first().toLowerCase()) {
+                                            "loop" -> {
+                                                if (splitStatement.size == 3) {
+                                                    val period = splitStatement[1].toIntOrNull()
+                                                    val times = splitStatement[2].toIntOrNull()
+                                                    if (period != null && times != null) {
+                                                        currentGroup = currentGroup.addLoop(
+                                                            currentGroup,
+                                                            withoutColonStatement,
+                                                            period,
+                                                            times
+                                                        )
+                                                    } else {
+                                                        errorList.add("[Skill] パラメータは {period:int} {times:int} です '$withoutColonStatement'")
+                                                    }
+                                                } else {
+                                                    errorList.add("[Skill] ループブロックに必要なパラメータは２つです '$withoutColonStatement'")
+                                                }
+                                            }
+                                            "when" -> {
+                                                currentGroup = currentGroup.addWhen(
+                                                    currentGroup,
+                                                    withoutColonStatement
+                                                )
+                                            }
+                                            "async" -> {
+                                                currentGroup = currentGroup.addAsync(
+                                                    currentGroup,
+                                                    withoutColonStatement
+                                                )
+                                            }
+                                            else -> {
+                                                errorList.add("[Skill] 有効なサブブロックではありません '$withoutColonStatement'")
+                                            }
+                                        }
+                                    } else {
+                                        currentGroup = currentGroup.addCondition(
+                                            currentGroup,
+                                            withoutColonStatement
+                                        )
+                                    }
                                     lastDepth++
                                 }
                             }
@@ -164,18 +203,26 @@ object MobDataLoader {
                                         is ToRunnableResult.Error -> runnable.error
                                         else -> "null"
                                     }
-                                    appendln(it.statement + "(" + result + ")")
+                                    appendln("${it.statement} (statement $result)")
                                 }
                                 is StatementGroup.Event -> {
-                                    appendln(it.statement)
-                                    if (it.eventType != null) {
-                                        groupToString(parentGroup.addEvent(parentGroup, it.eventType), it, depth + 1)
-                                    } else {
-                                        groupToString(parentGroup.addSubGroup(parentGroup), it, depth + 1)
-                                    }
+                                    appendln("${it.statement} (event)")
+                                    groupToString(parentGroup.addEvent(parentGroup, it.eventType), it, depth + 1)
                                 }
-                                is StatementGroup.SubGroup -> {
-                                    appendln(it.statement)
+                                is StatementGroup.Loop -> {
+                                    appendln("${it.statement} (loop ${it.period}, ${it.times})")
+                                    groupToString(parentGroup.addSubGroup(parentGroup), it, depth + 1)
+                                }
+                                is StatementGroup.When -> {
+                                    appendln("${it.statement} (when)")
+                                    groupToString(parentGroup.addSubGroup(parentGroup), it, depth + 1)
+                                }
+                                is StatementGroup.Condition -> {
+                                    appendln("${it.statement} (condition)")
+                                    groupToString(parentGroup.addSubGroup(parentGroup), it, depth + 1)
+                                }
+                                is StatementGroup.Async -> {
+                                    appendln("${it.statement} (async)")
                                     groupToString(parentGroup.addSubGroup(parentGroup), it, depth + 1)
                                 }
                             }
