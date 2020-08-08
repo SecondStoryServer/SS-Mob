@@ -5,8 +5,13 @@ import me.syari.ss.mob.data.event.MobSkillEvent
 open class StatementGroup {
     private val content = mutableListOf<StatementGroup>()
 
+    private fun <T: StatementGroup> content(group: T): T {
+        content.add(group)
+        return group
+    }
+
     fun addStatement(statement: String) {
-        content.add(Statement(statement))
+        content(Statement(statement))
     }
 
     fun addEvent(
@@ -14,7 +19,7 @@ open class StatementGroup {
         statement: String,
         eventType: MobSkillEvent.Type
     ): Event {
-        return Event(parentGroup, statement, MobSkillEvent.from(eventType, statement)).apply { content.add(this) }
+        return content(Event(parentGroup, statement, MobSkillEvent.from(eventType, statement)))
     }
 
     fun addLoop(
@@ -23,28 +28,28 @@ open class StatementGroup {
         period: Int,
         times: Int
     ): Loop {
-        return Loop(parentGroup, statement, period, times).apply { content.add(this) }
+        return content(Loop(parentGroup, statement, period, times))
     }
 
     fun addWhen(
         parentGroup: SubGroup?,
         statement: String
     ): When {
-        return When(parentGroup, statement).apply { content.add(this) }
+        return content(When(parentGroup, statement))
     }
 
     fun addCondition(
         parentGroup: SubGroup?,
         statement: String
     ): Condition {
-        return Condition(parentGroup, statement).apply { content.add(this) }
+        return content(Condition(parentGroup, statement))
     }
 
     fun addAsync(
         parentGroup: SubGroup?,
         statement: String
     ): Async {
-        return Async(parentGroup, statement).apply { content.add(this) }
+        return content(Async(parentGroup, statement))
     }
 
     fun get() = content.toList()
