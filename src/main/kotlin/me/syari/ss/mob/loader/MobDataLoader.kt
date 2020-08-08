@@ -81,7 +81,7 @@ object MobDataLoader {
         val id = fileName.substringBefore(FILE_EXTENSION)
         val cache = loadedMobDataCacheList.getOrPut(id) { LoadedMob() }
         return if (cache.lastModified != fileLastModified) {
-            val mobSkillEvents = mutableMapOf<MobSkillEvent, RunnableGroup>()
+            val mobSkillEvents = mutableMapOf<MobSkillEvent, RunnableGroup.Event>()
             val (configContent, skillContent) = file.readText().split("skill:").let { it.getOrNull(0) to it.getOrNull(1) }
             val config = configContent?.let {
                 config(mobPlugin, console, fileName, StringReader(configContent))
@@ -89,7 +89,7 @@ object MobDataLoader {
             val errorList = mutableListOf<String>()
             val skillLines = skillContent?.let { content ->
                 val lines = content.withoutComment.withoutBlankLines.withIndentWidth
-                val statementGroup = StatementGroup.SubGroup(null, "", null)
+                val statementGroup = StatementGroup.SubGroup(null, "")
                 val minIndentWidth = lines.firstOrNull()?.second
                 if (minIndentWidth != null) {
                     var lastDepth = 1
@@ -112,15 +112,23 @@ object MobDataLoader {
                                 if (depth == 1 && isIgnoreEvent) {
                                     isIgnoreEvent = false
                                 }
-                                val mobSkillEvent = MobSkillEvent.Type.matchFirst(withoutColonStatement)
-                                if (depth == 1 && mobSkillEvent == null) {
-                                    errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
-                                    isIgnoreEvent = true
+                                if (depth == 1) {
+                                    val mobSkillEvent = MobSkillEvent.Type.matchFirst(withoutColonStatement)
+                                    if (mobSkillEvent == null) {
+                                        errorList.add("[Skill] イベントではありません '$withoutColonStatement'")
+                                        isIgnoreEvent = true
+                                    } else if (!isIgnoreEvent) {
+                                        currentGroup = currentGroup.addEvent(
+                                            currentGroup,
+                                            withoutColonStatement,
+                                            mobSkillEvent
+                                        )
+                                        lastDepth++
+                                    }
                                 } else if (!isIgnoreEvent) {
                                     currentGroup = currentGroup.addSubGroup(
                                         currentGroup,
-                                        withoutColonStatement,
-                                        mobSkillEvent
+                                        withoutColonStatement
                                     )
                                     lastDepth++
                                 }
@@ -158,28 +166,36 @@ object MobDataLoader {
                                     }
                                     appendln(it.statement + "(" + result + ")")
                                 }
+                                is StatementGroup.Event -> {
+                                    appendln(it.statement)
+                                    if (it.eventType != null) {
+                                        groupToString(parentGroup.addEvent(parentGroup, it.eventType), it, depth + 1)
+                                    } else {
+                                        groupToString(parentGroup.addSubGroup(parentGroup), it, depth + 1)
+                                    }
+                                }
                                 is StatementGroup.SubGroup -> {
                                     appendln(it.statement)
-                                    groupToString(parentGroup.addSubGroup(parentGroup, it.eventType), it, depth + 1)
+                                    groupToString(parentGroup.addSubGroup(parentGroup), it, depth + 1)
                                 }
                             }
                         }
                     }
 
-                    RunnableGroup.SubGroup(null, null).apply {
+                    RunnableGroup.SubGroup(null).apply {
                         groupToString(this, statementGroup, 0)
                     }.get().forEach {
-                        if (it is RunnableGroup.SubGroup && it.eventType != null) {
+                        if (it is RunnableGroup.Event) {
                             mobSkillEvents[it.eventType] = it
                         }
                     }
 
                     appendln("Events: ${mobSkillEvents.size}")
                     mobSkillEvents.values.first().let {
-                        appendln("Event[${(it as RunnableGroup.SubGroup).eventType.toString()}]: ${it.get().size}")
+                        appendln("Event[${it.eventType}]: ${it.get().size}")
                     }
                     mobSkillEvents.values.last().let {
-                        appendln("Event[${(it as RunnableGroup.SubGroup).eventType.toString()}]: ${it.get().size}")
+                        appendln("Event[${it.eventType}]: ${it.get().size}")
                     }
                 }
             }

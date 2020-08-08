@@ -3,7 +3,7 @@ package me.syari.ss.mob.loader.statement
 import me.syari.ss.mob.data.LivingMobData
 import me.syari.ss.mob.data.event.MobSkillEvent
 
-sealed class RunnableGroup {
+open class RunnableGroup {
     private val content = mutableListOf<RunnableGroup>()
 
     fun addStatement(statement: (LivingMobData) -> Unit) {
@@ -11,10 +11,16 @@ sealed class RunnableGroup {
     }
 
     fun addSubGroup(
-        parentGroup: SubGroup?,
-        eventType: MobSkillEvent?
+        parentGroup: SubGroup?
     ): SubGroup {
-        return SubGroup(parentGroup, eventType).apply { content.add(this) }
+        return SubGroup(parentGroup).apply { content.add(this) }
+    }
+
+    fun addEvent(
+        parentGroup: SubGroup?,
+        eventType: MobSkillEvent
+    ): SubGroup {
+        return Event(parentGroup, eventType).apply { content.add(this) }
     }
 
     fun get() = content.toList()
@@ -23,9 +29,16 @@ sealed class RunnableGroup {
         content.forEach { it.invoke(caller) }
     }
 
-    data class Statement(val statement: (LivingMobData) -> Unit): RunnableGroup()
-    data class SubGroup(
-        val parentGroup: SubGroup?,
-        val eventType: MobSkillEvent?
+    class Statement(
+        val statement: (LivingMobData) -> Unit
     ): RunnableGroup()
+
+    open class SubGroup(
+        val parentGroup: SubGroup?
+    ): RunnableGroup()
+
+    class Event(
+        parentGroup: SubGroup?,
+        val eventType: MobSkillEvent
+    ): SubGroup(parentGroup)
 }
